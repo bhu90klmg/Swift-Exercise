@@ -1,0 +1,328 @@
+
+//  目前計算後有時還會有無限小數點問題（待處理）
+//  先乘除後加減，目前還在找方法解決
+//
+//  由於程式碼一開始沒有規劃好，又想讓預計的功能可以正常運作，所以就不斷修改與調整，後半段程式碼有點混亂，請多多見諒。
+//  未來會持續修改與調整，希望到時解決先乘除後加減時，不會變成程式碼大改版。（其實應該會...嗚嗚...總之～持續努力加油）
+//
+//  目前有的功能是：正負鍵、百分比、小數點、刪除鍵、記憶上一步（有些還是有小bug...)
+import UIKit
+
+class ViewController: UIViewController {
+    
+    var operation = "none" // 記錄目前要執行的運算類型
+    var performingMath = false // 目前是否在運算中
+    var numberOnScreen:Double = 0 // 儲存畫面上目前的數字
+    var previousNumber:Double = 0 // 之前畫面上的數字
+    var startNew = true  // 是否要重啟計算
+    var isDecimal = false // 確認小數點用
+    var isNegative = false // 確認負數用
+    var isNumber = false // 給負數確認數字是否執行中
+    var onOperation = "" // 給數字按鍵做運算中判斷用
+    var operationForRecord = "" // 給動作紀錄顯示運算符號用
+    
+    // 設定狀態列顯示為白色
+    override var preferredStatusBarStyle: UIStatusBarStyle {
+        return .lightContent
+    }
+    
+    @IBOutlet weak var resultLabel: UILabel!
+    
+    // 上ㄧ步動作紀錄
+    @IBOutlet weak var actionRecord: UILabel!
+    
+    func actionRecondMethod(from: String) {
+        actionRecord.text = operationForRecord + resultLabel.text!
+    }
+    
+    // 確認是否為正常字串，並判斷整數和浮點數，及設定小數點後面位數。（資訊參考網路教學內容）
+    func makeOkNumberString(from number:Double) {   // 設定from是外部參數名，number是內部參數名。
+        var okText:String
+        
+        if floor(number) == number {    // floor為無條件捨去，這邊是在測試是否為整數
+            okText = "\(Int(number))"
+        } else {
+            okText = "\(number)"
+        }
+        if okText.count >= 9 {
+            okText = String(okText.prefix(9))   // 只截取前面10個數字
+        }
+        resultLabel.text = okText
+    }
+    
+    // 確認目前是否有小數點狀態
+    func decimalCheck(from number:Double) {
+        let okDecimal:String
+        if floor(number) == number  {
+            okDecimal = "\(Int(number))"
+            isDecimal = false
+        } else {
+            okDecimal = "\(number)"
+            isDecimal = true
+        }
+        resultLabel.text = okDecimal
+    }
+    
+    // 有關浮點數相減時的問題（以下程式碼參考網路分享內容）
+    func subtractFloat(s1:String, s2:String) -> String { //輸入二個數字字串
+        var c:Double = 0 //用做計算結果之用
+        var k:Double = 1 //作為十的次方之用
+        let n1:Double! = Double(s1) //轉換字串為浮點數
+        let n2:Double! = Double(s2) //轉換字串為浮點數
+        let a1 = Array(s1) //轉換字串為字元陣列
+        let a2 = Array(s2) //轉換字串為字元陣列
+        var counter1 = 0 //第一個陣列的元素個數
+        var counter2 = 0 //第二個陣列的元素個數
+        var afterPoint = 0 //看誰的小數點後面的數字個數多就給它
+        
+        //求出二個數字小數點之後的數字個數
+        for i in 0...(a1.count-1) {
+            if a1[i] == "." {
+                counter1 = a1.count - i - 1
+            }
+        }
+        for i in 0...(a2.count-1) {
+            if a2[i] == "." {
+                counter2 = a2.count - i - 1
+            }
+        }
+        
+        //將比較多的個數給予afterPoint
+        if counter1 >= counter2 {
+            afterPoint = counter1 }
+        else {
+            afterPoint = counter2
+        }
+        
+        //將afterPoint當成十的次方數
+        for _ in 1...afterPoint {
+            k = k*10
+        }
+        
+        c = (n1*k - n2*k)/k //先將二個數字乘上k都變成整數再相減，減完後再除以k回歸為浮點數
+        return String(c) //將結果轉換成字串回傳
+    }
+    
+    // 數字按鍵
+    @IBAction func numbers(_ sender: UIButton) {
+        let inputNumber = sender.tag - 1
+        isNumber = true
+        
+        if resultLabel.text != nil {
+            if isNegative == true {
+                resultLabel.text = resultLabel.text! + "\(inputNumber)"
+                
+            } else {
+                if startNew == true && performingMath == false {
+                    resultLabel.text = "\(inputNumber)"
+                    startNew = false // 這個if是按完等於後，任何數字按鍵皆可歸零重啟計算。
+                } else if resultLabel.text == "0" || onOperation == "onPlus" || onOperation == "onMinus" || onOperation == "onTimes" || onOperation == "onDivided" {
+                    resultLabel.text = "\(inputNumber)"
+                    onOperation = ""
+                } else {
+                    resultLabel.text = resultLabel.text! + "\(inputNumber)"
+                }
+            }
+        }
+        actionRecondMethod(from: resultLabel.text!)
+        numberOnScreen = Double(resultLabel.text!) ?? 0
+        // 如果resultLabel.text無法轉成Double，就把0存進現在的畫面。
+    }
+    
+    // 小數點
+    @IBAction func decimal(_ sender: UIButton) {
+        
+        let inputNumber = "."
+        decimalCheck(from: numberOnScreen)
+        
+        if resultLabel.text != nil {
+            if  isNegative == true && -Int(resultLabel.text!)! > 0  {
+                resultLabel.text = resultLabel.text! + inputNumber
+                
+            }  else if isNegative == true || Double(resultLabel.text!)! < 0 {
+                resultLabel.text = "-" + resultLabel.text! + inputNumber
+                
+            } else if startNew == true && performingMath == false {
+                resultLabel.text = "0" + inputNumber
+                startNew = false
+            }
+                
+            else {
+                if onOperation == "onPlus" || onOperation == "onMinus" || onOperation == "onTimes" || onOperation == "onDivided" {
+                    resultLabel.text = "0" + inputNumber
+                    onOperation = ""
+                    
+                } else if isDecimal == true {
+                    resultLabel.text = resultLabel.text!
+                } else {
+                    resultLabel.text = resultLabel.text! + inputNumber
+                }
+            }
+        }
+        
+    }
+    // 刪除鍵
+    @IBAction func deleteKey(_ sender: UIButton) {
+        
+        resultLabel.text = String(resultLabel.text!.dropLast())
+        numberOnScreen = Double(resultLabel.text!) ?? 0
+        actionRecondMethod(from: resultLabel.text!)
+    }
+    
+    // 百分比（異常小數點問題未解決）
+    @IBAction func percentage(_ sender: UIButton) {
+        
+        if resultLabel.text != nil {
+            if numberOnScreen == 0 {
+                resultLabel.text = "0"
+            } else {
+                resultLabel.text = "\(numberOnScreen / 100)"
+                numberOnScreen = Double(resultLabel.text!)!
+                actionRecondMethod(from: resultLabel.text!)
+            }
+        }
+    }
+    
+    // 正負號
+    @IBAction func negative(_ sender: UIButton) {
+        
+        if resultLabel.text == "0" || resultLabel.text == "-" {
+            resultLabel.text = "-"
+            isNegative = true
+            
+        } else if isNumber == true && performingMath == true && isNegative == false {
+            resultLabel.text = "-" + resultLabel.text!
+            numberOnScreen = Double(resultLabel.text!)!
+        } else if performingMath == true && isNegative == false {
+            resultLabel.text = "-"
+            
+        } else if resultLabel.text == "0." {
+            resultLabel.text = "-" + resultLabel.text!
+            
+        } else if Double(resultLabel.text!)! <= 0 || resultLabel.text == "-0" {
+            resultLabel.text = String(resultLabel.text!.dropFirst())
+            numberOnScreen = Double(resultLabel.text!)!
+        } else {
+            resultLabel.text = "-" + resultLabel.text!
+            numberOnScreen = Double(resultLabel.text!)!
+        }
+        isNumber = false
+        isNegative = true
+        actionRecondMethod(from: resultLabel.text!)
+    }
+    
+    // AC清除歸零
+    @IBAction func clear(_ sender: UIButton) {
+        startNew = true
+        resultLabel.text = "0"
+        actionRecord.text = "0"
+        operation = "none"
+        performingMath = false
+        numberOnScreen = 0
+        previousNumber = 0
+        isNegative = false
+        operationForRecord = ""
+        onOperation = ""
+    }
+    
+    // 加法 +
+    @IBAction func plus(_ sender: UIButton) {
+        answer()
+        onOperation = "onPlus"
+        operation = "plus"
+        performingMath = true
+        operationForRecord = "+"
+        isNegative = false
+        isNumber = false
+        previousNumber = numberOnScreen
+    }
+    
+    // 減法 -
+    @IBAction func minus(_ sender: UIButton) {
+        answer()
+        onOperation = "onMinus"
+        operation = "minus"
+        performingMath = true
+        operationForRecord = "-"
+        isNegative = false
+        isNumber = false
+        previousNumber = numberOnScreen
+    }
+    
+    // 乘法 ×
+    @IBAction func times(_ sender: UIButton) {
+        answer()
+        onOperation = "onTimes"
+        operation = "times"
+        performingMath = true
+        operationForRecord = "×"
+        isNegative = false
+        isNumber = false
+        previousNumber = numberOnScreen
+    }
+    
+    // 除法 ÷
+    @IBAction func divided(_ sender: UIButton) {
+        answer()
+        onOperation = "onDivided"
+        operation = "divided"
+        performingMath = true
+        operationForRecord = "÷"
+        isNegative = false
+        isNumber = false
+        previousNumber = numberOnScreen
+    }
+    
+    func answer() {
+        
+        if isNumber == false {
+            resultLabel.text = resultLabel.text!
+            
+        } else if performingMath == true {
+            
+            if operation == "times" || operation == "divided" {
+                if operation == "times" {
+                    numberOnScreen = previousNumber * numberOnScreen
+                    makeOkNumberString(from: numberOnScreen)
+                } else if operation == "divided" {
+                    if numberOnScreen != 0 {    // 避免除0時，產生crash
+                        numberOnScreen = previousNumber / numberOnScreen
+                        makeOkNumberString(from: numberOnScreen)
+                    } else {
+                        resultLabel.text = "0"
+                    }
+                }
+            } else if operation == "plus" {
+                numberOnScreen = previousNumber + numberOnScreen
+                makeOkNumberString(from: numberOnScreen)
+            } else if operation == "minus" {
+                numberOnScreen = Double(subtractFloat(s1: "\(previousNumber)", s2: "\(numberOnScreen)"))!
+                makeOkNumberString(from: numberOnScreen)
+            } else if operation == "none" {
+                resultLabel.text = "0"
+            }
+            
+            performingMath = false
+            isNegative = false
+            isNumber = false
+            onOperation = ""
+            startNew = true
+            
+            numberOnScreen = Double(resultLabel.text!)!
+            previousNumber = numberOnScreen
+        }
+    }
+    
+    @IBAction func equals(_ sender: UIButton) {
+        answer()
+    }
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+    }
+    
+    override func didReceiveMemoryWarning() {
+        super.didReceiveMemoryWarning()
+        // Dispose of any resources that can be recreated.
+    }
+}
